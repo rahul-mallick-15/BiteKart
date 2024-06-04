@@ -1,0 +1,6 @@
+{
+    "watch": ["src/**/*.ts","db/**/*.ts","models/**/*.ts","routes/**/*.ts","middleware/**/*.ts","controllers/**/*.ts","errors/**/*.ts"],
+    "ext": "ts",
+    "exec": "tsc --build && node dist/src/app.js"
+}
+  
