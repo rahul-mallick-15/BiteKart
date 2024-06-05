@@ -19,7 +19,7 @@ const Contact = sequelize.define('Contact', {
     type: DataTypes.INTEGER,
     allowNull: true,
     references: {
-      model: 'Contacts', // 'Contacts' would be the name of the table
+      model: 'Contact', // 'Contact' would be the name of the table
       key: 'id',
     },
   },
@@ -42,6 +42,7 @@ const Contact = sequelize.define('Contact', {
     allowNull: true,
   },
 }, {
+  tableName: 'Contact', // explicitly specify the table name
   timestamps: true,
   paranoid: true, // This will add deletedAt column for soft deletes
 });

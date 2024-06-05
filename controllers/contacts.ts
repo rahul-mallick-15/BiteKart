@@ -1,5 +1,6 @@
 import asyncWrapper from "../middleware/async"
 import sequelize from "../models"
+import Contact from "../models/Contact"
 
 export const getAllContacts = asyncWrapper(async (req: any, res: any, next: any) => {
     const [results, metadata] = await sequelize.query('SELECT * FROM "Contact"');
@@ -11,15 +12,25 @@ export const getAllContacts = asyncWrapper(async (req: any, res: any, next: any)
 export const createContact = asyncWrapper(async (req: any, res: any, next: any) => {
     const { email, phoneNumber } = req.body;
     let [results, metadata] = await sequelize.query('SELECT id, "linkPrecedence" FROM "Contact" WHERE ("email" = ? or "phoneNumber" = ?) and "linkPrecedence"=\'primary\'', {replacements: [email, phoneNumber]});
+    let createdContact;
     if(results.length == 0){
-        [results, metadata] = await sequelize.query('INSERT INTO "Contact" ("email", "phoneNumber", "linkPrecedence") VALUES (?, ?, ?)', { replacements: [email, phoneNumber, "primary"] });
+        createdContact = await Contact.create({
+            email: email,
+            phoneNumber: phoneNumber,
+            linkPrecedence: "primary"
+        });
     }
     else{
         const [{id}] = results as {id:number}[];
-        [results, metadata] = await sequelize.query('INSERT INTO "Contact" ("email", "phoneNumber", "linkPrecedence", "linkedId") VALUES (?, ?, ?, ?)', { replacements: [email, phoneNumber, "secondary", id] });
+        createdContact = await Contact.create({
+            email: email,
+            phoneNumber: phoneNumber,
+            linkPrecedence: "secondary",
+            linkedId: id
+        });
     }
     console.log(results);
-    res.status(201).json({ success: true, data: results })
+    res.status(201).json({ success: true, createdContact })
 })
 
 export const identifyContact = asyncWrapper(async (req: any, res: any, next: any) => {
