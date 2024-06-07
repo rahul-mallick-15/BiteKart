@@ -5,12 +5,16 @@ import Contact from "../models/Contact"
 export const getAllContacts = asyncWrapper(async (req: any, res: any, next: any) => {
     const [results, metadata] = await sequelize.query('SELECT * FROM "Contact"');
     console.log(results);
-    // console.log(metadata);
-    res.status(200).json({ success: true, data: results })
+    return res.status(200).json({ success: true, data: results })
 })
 
 export const createContact = asyncWrapper(async (req: any, res: any, next: any) => {
     const { email, phoneNumber } = req.body;
+
+    // orders on FluxKart.com will always have either an email or phoneNumber
+    if(!email && !phoneNumber){
+        return res.status(400).json({ success: false, msg: "Please provide email or phone number" })
+    }
     let [results, metadata] = await sequelize.query('SELECT id, "linkPrecedence" FROM "Contact" WHERE ("email" = ? or "phoneNumber" = ?) and "linkPrecedence"=\'primary\'', {replacements: [email, phoneNumber]});
     let createdContact;
     if(results.length == 0){
@@ -30,7 +34,7 @@ export const createContact = asyncWrapper(async (req: any, res: any, next: any) 
         });
     }
     console.log(results);
-    res.status(201).json({ success: true, createdContact })
+    return res.status(201).json({ success: true, createdContact })
 })
 
 export const identifyContact = asyncWrapper(async (req: any, res: any, next: any) => {
@@ -39,9 +43,19 @@ export const identifyContact = asyncWrapper(async (req: any, res: any, next: any
     
     let [results, metadata] = await sequelize.query('SELECT id, email, "phoneNumber", "linkPrecedence", "linkedId" FROM "Contact" WHERE email = ? or "phoneNumber" = ? order by "linkPrecedence"', { replacements: [email, phoneNumber] });
     if(results.length == 0){
-        createContact(req,res,next);
-        return
+        return createContact(req,res,next);
     }
+    
+    if(email && phoneNumber){
+        // Determine if email or phone number exists
+        const emailExists = results.some((contact: any) => contact.email === email);
+        const phoneNumberExists = results.some((contact: any) => contact.phoneNumber === phoneNumber);
+
+        if(!emailExists || !phoneNumberExists){
+            return createContact(req, res, next);
+        }
+    }
+
     const {linkPrecedence} = results[0] as {linkPrecedence:string}
     if(linkPrecedence == "secondary"){
         const {id, linkedId} = results[0] as {id:number, linkedId:number};
@@ -57,5 +71,5 @@ export const identifyContact = asyncWrapper(async (req: any, res: any, next: any
     const phoneNumbers: string[] = Array.from(new Set((results as { phoneNumber: string }[]).map((item) => item.phoneNumber)));
     const secondaryContactIds = (results as { id: number }[]).slice(1).map(obj => obj.id);
     console.log(results);
-    res.status(200).json({ contact: {primaryContactId,emails,phoneNumber,secondaryContactIds}})
+    res.status(200).json({ contact: {primaryContactId,emails,phoneNumbers,secondaryContactIds}})
 })
