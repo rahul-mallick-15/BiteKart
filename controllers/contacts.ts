@@ -1,10 +1,11 @@
 import asyncWrapper from "../middleware/async"
 import sequelize from "../models"
 import Contact from "../models/Contact"
+import {Op} from "sequelize"
 
 export const getAllContacts = asyncWrapper(async (req: any, res: any, next: any) => {
     const [results, metadata] = await sequelize.query('SELECT * FROM "Contact"');
-    console.log(results);
+    // console.log(results);
     return res.status(200).json({ success: true, data: results })
 })
 
@@ -41,7 +42,7 @@ export const identifyContact = asyncWrapper(async (req: any, res: any, next: any
     const { email, phoneNumber } = req.body;
     console.log(email,phoneNumber);
     
-    let [results, metadata] = await sequelize.query('SELECT id, email, "phoneNumber", "linkPrecedence", "linkedId" FROM "Contact" WHERE email = ? or "phoneNumber" = ? order by "linkPrecedence"', { replacements: [email, phoneNumber] });
+    let [results, metadata] = await sequelize.query('SELECT id, email, "phoneNumber", "linkPrecedence", "linkedId" FROM "Contact" WHERE email = ? or "phoneNumber" = ? order by "linkPrecedence", "createdAt"', { replacements: [email, phoneNumber] });
     if(results.length == 0){
         return createContact(req,res,next);
     }
@@ -54,6 +55,23 @@ export const identifyContact = asyncWrapper(async (req: any, res: any, next: any
         if(!emailExists || !phoneNumberExists){
             return createContact(req, res, next);
         }
+    }
+
+    // Count matches with linkPrecedence as "primary"
+    const primaryCount = results.filter((contact: any) => contact.linkPrecedence === "primary").length;
+    if(primaryCount == 2){
+        const {id:linkedId} = results[0] as {id:number};
+        const {id} = results[1] as {id:number};
+        await Contact.update(
+            {
+              linkPrecedence: 'secondary',
+              linkedId,
+              updatedAt: new Date(), // Set updatedAt to the current timestamp
+            },
+            {
+              where: { [Op.or]:[{id: id}, {linkedId: id}] },
+            }
+          );
     }
 
     const {linkPrecedence} = results[0] as {linkPrecedence:string}
